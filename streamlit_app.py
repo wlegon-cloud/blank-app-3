@@ -19,7 +19,7 @@ creds = Credentials.from_service_account_info(
 
 client = gspread.authorize(creds)
 
-SHEET_NAME = st.secrets["SHEET_NAME"]
+SHEET_NAME = st.secrets.get("SHEET_NAME", "Feria_2026")
 sheet = client.open(SHEET_NAME).sheet1
 
 # -----------------------
