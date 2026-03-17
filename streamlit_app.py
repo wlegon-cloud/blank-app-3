@@ -62,12 +62,12 @@ else:
 # -------------------------
 # FORMULARIO
 # -------------------------
-nombre = st.text_input("Nombre")
-empresa = st.text_input("Empresa")
-contacto = st.text_input("Teléfono o Email")
-
+nombre = st.text_input("Nombre", key="nombre")
+empresa = st.text_input("Empresa", key="empresa")
+contacto = st.text_input("Teléfono o Email", key="contacto")
 comentarios = st.text_area(
     "Comentarios (opcional)",
+    key="comentarios",
     placeholder="Ej: necesita cotización / llamar la semana que viene",
     height=80
 )
