@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import io
 
 st.set_page_config(page_title="Registro Feria", layout="centered")
@@ -77,7 +78,7 @@ comentarios = st.text_area(
 if st.button("Guardar"):
     if st.session_state.rubro and nombre and contacto:
         nuevo = pd.DataFrame([{
-            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "Fecha": datetime.now(ZoneInfo("America/Montevideo")).strftime("%Y-%m-%d %H:%M"),),
             "Rubro": st.session_state.rubro,
             "Nombre": nombre,
             "Empresa": empresa,
