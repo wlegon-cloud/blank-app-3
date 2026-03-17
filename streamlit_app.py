@@ -1,121 +1,136 @@
 import streamlit as st
-import pandas as pd
-import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import io
+import gspread
+from google.oauth2.service_account import Credentials
 
-st.set_page_config(page_title="Registro Feria", layout="centered")
-
-st.title("Registro rápido - Feria")
-
-# Estilo botones grandes
-st.markdown("""
-    <style>
-    div.stButton > button {
-        height: 80px;
-        width: 100%;
-        font-size: 18px;
-        border-radius: 10px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-FILE_NAME = "contactos.csv"
-
-# Crear archivo si no existe
-if not os.path.exists(FILE_NAME):
-    df = pd.DataFrame(columns=[
-        "Fecha", "Rubro", "Nombre", "Empresa", "Contacto", "Comentarios"
-    ])
-    df.to_csv(FILE_NAME, index=False)
-
-# -------------------------
-# RUBROS (BOTONES CUADRADOS)
-# -------------------------
-rubros = [
-    "Logística",
-    "Industria",
-    "Retail",
-    "Construcción",
-    "Agro",
-    "Otro"
+# -----------------------
+# CONFIG GOOGLE SHEETS
+# -----------------------
+scope = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
 ]
 
-st.subheader("¿Qué rubro le interesa?")
-
-if "rubro" not in st.session_state:
-    st.session_state.rubro = None
-
-cols = st.columns(3)
-
-for i, r in enumerate(rubros):
-    if cols[i % 3].button(r):
-        st.session_state.rubro = r
-
-# Mostrar selección
-if st.session_state.rubro:
-    st.success(f"Rubro seleccionado: {st.session_state.rubro}")
-else:
-    st.warning("Seleccioná un rubro")
-
-# -------------------------
-# FORMULARIO
-# -------------------------
-nombre = st.text_input("Nombre", key="nombre")
-empresa = st.text_input("Empresa", key="empresa")
-contacto = st.text_input("Teléfono o Email", key="contacto")
-comentarios = st.text_area(
-    "Comentarios (opcional)",
-    key="comentarios",
-    placeholder="Ej: necesita cotización / llamar la semana que viene",
-    height=80
+creds = Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"],
+    scopes=scope
 )
 
-# -------------------------
-# GUARDAR
-# -------------------------
-if st.button("Guardar"):
-    if st.session_state.rubro and nombre and contacto:
-        nuevo = pd.DataFrame([{
-            "Fecha": datetime.now(ZoneInfo("America/Montevideo")).strftime("%Y-%m-%d %H:%M"),
-            "Rubro": st.session_state.rubro,
-            "Nombre": nombre,
-            "Empresa": empresa,
-            "Contacto": contacto,
-            "Comentarios": comentarios
-        }])
+client = gspread.authorize(creds)
 
-        nuevo.to_csv(FILE_NAME, mode='a', header=False, index=False)
+SHEET_NAME = st.secrets["SHEET_NAME"]
+sheet = client.open(SHEET_NAME).sheet1
 
-        st.success("Contacto guardado ✅")
+# -----------------------
+# CONFIG APP
+# -----------------------
+st.set_page_config(page_title="Registro Feria", page_icon="📋")
 
-        # Resetear
-        st.session_state.rubro = None
+st.title("Registro de Interesados")
+
+# -----------------------
+# SESSION STATE
+# -----------------------
+if "step" not in st.session_state:
+    st.session_state.step = 1
+
+if "data" not in st.session_state:
+    st.session_state.data = {}
+
+# -----------------------
+# PASO 1: RUBRO
+# -----------------------
+if st.session_state.step == 1:
+    st.subheader("¿Qué rubro le interesó?")
+
+    rubros = [
+        "Compactación",
+        "Cintas transportadoras",
+        "Contenedores",
+        "Ruedas",
+        "Otro"
+    ]
+
+    seleccionados = []
+    for r in rubros:
+        if st.checkbox(r):
+            seleccionados.append(r)
+
+    if st.button("Siguiente"):
+        if seleccionados:
+            st.session_state.data["rubro"] = ", ".join(seleccionados)
+            st.session_state.step = 2
+            st.rerun()
+        else:
+            st.warning("Seleccioná al menos un rubro")
+
+# -----------------------
+# PASO 2: NOMBRE
+# -----------------------
+elif st.session_state.step == 2:
+    nombre = st.text_input("Nombre")
+
+    if st.button("Siguiente"):
+        if nombre:
+            st.session_state.data["nombre"] = nombre
+            st.session_state.step = 3
+            st.rerun()
+        else:
+            st.warning("Ingresá el nombre")
+
+# -----------------------
+# PASO 3: EMPRESA
+# -----------------------
+elif st.session_state.step == 3:
+    empresa = st.text_input("Empresa")
+
+    if st.button("Siguiente"):
+        if empresa:
+            st.session_state.data["empresa"] = empresa
+            st.session_state.step = 4
+            st.rerun()
+        else:
+            st.warning("Ingresá la empresa")
+
+# -----------------------
+# PASO 4: CONTACTO
+# -----------------------
+elif st.session_state.step == 4:
+    contacto = st.text_input("Contacto (teléfono o email)")
+
+    if st.button("Siguiente"):
+        if contacto:
+            st.session_state.data["contacto"] = contacto
+            st.session_state.step = 5
+            st.rerun()
+        else:
+            st.warning("Ingresá un contacto")
+
+# -----------------------
+# PASO 5: COMENTARIOS
+# -----------------------
+elif st.session_state.step == 5:
+    comentarios = st.text_area("Comentarios (opcional)")
+
+    if st.button("Guardar"):
+        now = datetime.now(ZoneInfo("America/Montevideo"))
+
+        fila = [
+            now.strftime("%Y-%m-%d %H:%M"),
+            st.session_state.data.get("rubro", ""),
+            st.session_state.data.get("nombre", ""),
+            st.session_state.data.get("empresa", ""),
+            st.session_state.data.get("contacto", ""),
+            comentarios
+        ]
+
+        sheet.append_row(fila)
+
+        st.success("Guardado correctamente")
+
+        # RESET TOTAL
+        st.session_state.step = 1
+        st.session_state.data = {}
+
         st.rerun()
-    else:
-        st.error("Completá rubro, nombre y contacto")
-
-# -------------------------
-# DESCARGAR EXCEL
-# -------------------------
-st.divider()
-st.subheader("Descargar datos")
-
-if os.path.exists(FILE_NAME):
-    df = pd.read_csv(FILE_NAME)
-
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Contactos')
-
-    buffer.seek(0)
-
-    st.download_button(
-        label="Descargar Excel",
-        data=buffer,
-        file_name="contactos_feria.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-else:
-    st.info("No hay datos aún")
