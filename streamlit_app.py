@@ -78,7 +78,7 @@ comentarios = st.text_area(
 if st.button("Guardar"):
     if st.session_state.rubro and nombre and contacto:
         nuevo = pd.DataFrame([{
-            "Fecha": datetime.now(ZoneInfo("America/Montevideo")).strftime("%Y-%m-%d %H:%M"),),
+            "Fecha": datetime.now(ZoneInfo("America/Montevideo")).strftime("%Y-%m-%d %H:%M"),
             "Rubro": st.session_state.rubro,
             "Nombre": nombre,
             "Empresa": empresa,
